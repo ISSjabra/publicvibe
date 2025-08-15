@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product List CSV Downloader</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Using the Inter font from Google Fonts for a clean look */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 flex items-center justify-center min-h-screen">
+
+    <div class="w-full max-w-md mx-auto p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-lg text-center">
+        <!-- Header Section -->
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-2">Product End-of-Life Data</h1>
+        <p class="text-gray-600 dark:text-gray-400 mb-6">Click the button below to download a CSV file containing a list of all products from the endoflife.date API.</p>
+
+        <!-- Download Button -->
+        <button id="downloadBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800">
+            Download Product List (CSV)
+        </button>
+
+        <!-- Status Message Area -->
+        <p id="status" class="mt-4 text-sm text-gray-500 dark:text-gray-400 h-5"></p>
+    </div>
+
+    <script>
+        // --- DOM Element Selection ---
+        const downloadBtn = document.getElementById('downloadBtn');
+        const statusEl = document.getElementById('status');
+
+        /**
+         * Fetches all product names from the API.
+         * @returns {Promise<string[]>} A promise that resolves to an array of product names.
+         */
+        async function fetchAllProducts() {
+            const apiUrl = 'https://endoflife.date/api/all.json';
+            statusEl.textContent = 'Fetching data...';
+            try {
+                const response = await fetch(apiUrl);
+                // Check if the network response was successful
+                if (!response.ok) {
+                    throw new Error(`Network response was not ok: ${response.statusText}`);
+                }
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Failed to fetch products:', error);
+                statusEl.textContent = 'Error fetching data. Please try again.';
+                // Return null or an empty array to signify failure
+                return null;
+            }
+        }
+
+        /**
+         * Converts an array of product strings into a CSV formatted string.
+         * @param {string[]} products - An array of product names.
+         * @returns {string} A CSV formatted string.
+         */
+        function convertToCSV(products) {
+            // Define the header for the CSV file
+            const header = 'ProductName';
+            // Join all product names with a newline character
+            const rows = products.join('\n');
+            // Combine header and rows
+            return `${header}\n${rows}`;
+        }
+
+        /**
+         * Triggers a browser download for the given CSV content.
+         * @param {string} csvContent - The content of the CSV file.
+         * @param {string} fileName - The desired name for the downloaded file.
+         */
+        function downloadCSV(csvContent, fileName) {
+            // Create a Blob (Binary Large Object) from the CSV content.
+            // A Blob represents a file-like object of immutable, raw data.
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+
+            // Create a temporary link element to trigger the download
+            const link = document.createElement('a');
+
+            // Create a URL for the Blob object
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', fileName);
+
+            // The link doesn't need to be visible, so we hide it
+            link.style.visibility = 'hidden';
+            
+            // Append the link to the document, click it, and then remove it
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            // Optional: Clean up the created URL to free up memory
+            URL.revokeObjectURL(url);
+        }
+
+        // --- Event Listener ---
+        downloadBtn.addEventListener('click', async () => {
+            // Disable the button to prevent multiple clicks while processing
+            downloadBtn.disabled = true;
+            downloadBtn.classList.add('opacity-50', 'cursor-not-allowed');
+
+            const products = await fetchAllProducts();
+
+            if (products && products.length > 0) {
+                statusEl.textContent = 'Converting data to CSV...';
+                const csvContent = convertToCSV(products);
+                
+                statusEl.textContent = 'Starting download...';
+                downloadCSV(csvContent, 'endoflife-products.csv');
+                
+                statusEl.textContent = 'Download complete!';
+            } else if (products) {
+                 statusEl.textContent = 'No products found.';
+            }
+            // If there was an error, the status is already set by fetchAllProducts
+
+            // Re-enable the button after a short delay
+            setTimeout(() => {
+                downloadBtn.disabled = false;
+                downloadBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                // Clear the status message after a few seconds
+                if (statusEl.textContent === 'Download complete!') {
+                   setTimeout(() => { statusEl.textContent = ''; }, 3000);
+                }
+            }, 1000);
+        });
+    </script>
+
+</body>
+</html>
