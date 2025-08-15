@@ -181,7 +181,8 @@
                 const data = await response.json();
                 apiCache.set(productName, data);
                 return data;
-            } catch (error) {
+            } catch (error)
+                {
                 console.error(error);
                 apiCache.set(productName, null); // Cache failure to prevent retries
                 return null;
@@ -255,9 +256,15 @@
                 return;
             }
 
-            // Perform a "fuzzy" search (substring match)
+            // Split the search query into individual terms to allow for more flexible searching.
+            const searchTerms = query.split(/\s+/).filter(term => term.length > 0);
+
             const filteredProducts = allProducts
-                .filter(product => product.toLowerCase().includes(query))
+                .filter(product => {
+                    const lowerCaseProduct = product.toLowerCase();
+                    // Check if the product name includes EVERY term from the search query.
+                    return searchTerms.every(term => lowerCaseProduct.includes(term));
+                })
                 .slice(0, MAX_RESULTS); // Limit results for performance and readability
             
             renderResults(filteredProducts);
@@ -267,7 +274,19 @@
         searchInput.addEventListener('input', handleSearch);
 
         // --- Initialisation ---
-        document.addEventListener('DOMContentLoaded', fetchAllProducts);
+        document.addEventListener('DOMContentLoaded', async () => {
+            // First, fetch all the product data.
+            await fetchAllProducts();
+
+            // Then, check for a URL parameter to pre-fill the search.
+            const urlParams = new URLSearchParams(window.location.search);
+            const queryFromUrl = urlParams.get('q'); // Check for a 'q' parameter
+
+            if (queryFromUrl) {
+                searchInput.value = decodeURIComponent(queryFromUrl); // Set input value from URL
+                handleSearch(); // Trigger the search automatically
+            }
+        });
 
     </script>
 </body>
