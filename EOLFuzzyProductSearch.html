@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product End-of-Life Search</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles for the page */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* A light gray background */
+        }
+        /* Simple animation for the loading spinner */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #09f;
+            animation: spin 1s ease-infinite;
+        }
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body class="antialiased text-gray-800">
+
+    <div class="min-h-screen flex flex-col items-center justify-center p-4">
+        <div class="w-full max-w-3xl mx-auto">
+            
+            <!-- Header Section -->
+            <header class="text-center mb-8">
+                <h1 class="text-4xl md:text-5xl font-bold text-gray-900">Product EOL Finder</h1>
+                <p class="mt-2 text-lg text-gray-600">Quickly search for end-of-life dates for any product.</p>
+            </header>
+
+            <!-- Search Input -->
+            <div class="relative mb-6">
+                <input type="text" id="searchInput" placeholder="e.g., 'python', 'ubuntu', 'angularjs'..."
+                       class="w-full px-5 py-4 text-lg bg-white border-2 border-gray-300 rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300">
+                <svg class="absolute right-5 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                </svg>
+            </div>
+
+            <!-- Status/Loading Section -->
+            <div id="status" class="text-center text-gray-500 min-h-[4rem] flex items-center justify-center">
+                <!-- Loading spinner will be injected here -->
+            </div>
+
+            <!-- Results Section -->
+            <main id="results" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Search results will be dynamically inserted here -->
+            </main>
+            
+        </div>
+        
+        <!-- Footer -->
+        <footer class="text-center mt-12 text-gray-500">
+            <p>Data provided by <a href="https://endoflife.date/" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">endoflife.date</a></p>
+        </footer>
+    </div>
+
+    <script>
+        // --- DOM Element References ---
+        const searchInput = document.getElementById('searchInput');
+        const resultsContainer = document.getElementById('results');
+        const statusContainer = document.getElementById('status');
+
+        // --- State Management ---
+        let allProducts = [];
+        let isLoading = true;
+        let apiCache = new Map(); // Cache for product details to avoid re-fetching
+
+        // --- Constants ---
+        const API_BASE_URL = 'https://endoflife.date/api';
+        const MAX_RESULTS = 12; // Limit the number of results to display
+
+        // --- Utility Functions ---
+
+        /**
+         * Formats a date string or boolean into a readable format.
+         * @param {string|boolean} date - The date string or boolean value.
+         * @returns {string} A formatted string.
+         */
+        const formatDate = (date) => {
+            if (typeof date === 'boolean') {
+                return date ? 'Supported' : 'Unsupported';
+            }
+            if (!date) return 'N/A';
+            try {
+                return new Date(date).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            } catch (e) {
+                return date; // Return original if formatting fails
+            }
+        };
+
+        /**
+         * Renders the loading state in the status container.
+         * @param {string} message - The message to display while loading.
+         */
+        const showLoading = (message) => {
+            statusContainer.innerHTML = `
+                <div class="flex flex-col items-center justify-center space-y-2">
+                    <div class="spinner"></div>
+                    <p>${message}</p>
+                </div>
+            `;
+        };
+
+        /**
+         * Renders a status message (e.g., error or info) in the status container.
+         * @param {string} message - The message to display.
+         */
+        const showStatus = (message) => {
+            statusContainer.innerHTML = `<p class="text-lg">${message}</p>`;
+        };
+
+        // --- Core Application Logic ---
+
+        /**
+         * Fetches all product names from the API on initial load.
+         */
+        const fetchAllProducts = async () => {
+            showLoading('Fetching product list...');
+            try {
+                const response = await fetch(`${API_BASE_URL}/all.json`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                allProducts = await response.json();
+                isLoading = false;
+                showStatus(`Ready to search through ${allProducts.length} products. Start typing!`);
+            } catch (error) {
+                console.error("Failed to fetch product list:", error);
+                showStatus('Could not load product data. Please try refreshing the page.');
+                isLoading = false;
+            }
+        };
+
+        /**
+         * Fetches detailed information for a single product.
+         * Uses a cache to avoid redundant API calls.
+         * @param {string} productName - The name of the product to fetch.
+         * @returns {Promise<Array>} A promise that resolves with the product cycle details.
+         */
+        const fetchProductDetails = async (productName) => {
+            if (apiCache.has(productName)) {
+                return apiCache.get(productName);
+            }
+            try {
+                const response = await fetch(`${API_BASE_URL}/${productName}.json`);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch details for ${productName}`);
+                }
+                const data = await response.json();
+                apiCache.set(productName, data);
+                return data;
+            } catch (error) {
+                console.error(error);
+                apiCache.set(productName, null); // Cache failure to prevent retries
+                return null;
+            }
+        };
+
+        /**
+         * Renders the search results on the page.
+         * @param {Array<string>} products - An array of product names to display.
+         */
+        const renderResults = (products) => {
+            resultsContainer.innerHTML = ''; // Clear previous results
+
+            if (products.length === 0) {
+                showStatus('No products found matching your query.');
+                return;
+            }
+            
+            showStatus(`Showing the top ${products.length} results.`);
+
+            products.forEach(productName => {
+                const card = document.createElement('div');
+                card.className = "bg-white p-5 rounded-lg shadow-md border border-gray-200 transform hover:-translate-y-1 transition-transform duration-300";
+                card.innerHTML = `
+                    <h2 class="text-xl font-bold capitalize text-gray-800">${productName}</h2>
+                    <div id="details-${productName}" class="mt-3 text-sm text-gray-600">
+                        <p>Loading details...</p>
+                    </div>
+                `;
+                resultsContainer.appendChild(card);
+
+                // Asynchronously load and display details for each product
+                fetchProductDetails(productName).then(details => {
+                    const detailsDiv = document.getElementById(`details-${productName}`);
+                    if (!details || details.length === 0) {
+                        detailsDiv.innerHTML = '<p class="text-red-500">Could not load details.</p>';
+                        return;
+                    }
+
+                    // Find the latest cycle to display as a summary
+                    const latestCycle = details[0];
+                    const eolDate = latestCycle.eol;
+                    const isSupported = new Date(eolDate) > new Date() || eolDate === true;
+                    const statusColor = isSupported ? 'text-green-600' : 'text-red-600';
+                    const statusText = isSupported ? 'Actively Supported' : 'End of Life';
+
+                    detailsDiv.innerHTML = `
+                        <p class="font-semibold">Latest Cycle: <span class="font-normal">${latestCycle.cycle}</span></p>
+                        <p class="font-semibold">End of Life: <span class="font-normal">${formatDate(eolDate)}</span></p>
+                        <p class="font-bold mt-2 ${statusColor}">${statusText}</p>
+                        <a href="https://endoflife.date/${productName}" target="_blank" rel="noopener noreferrer" class="inline-block mt-4 text-blue-600 hover:underline font-medium">
+                            View all cycles &rarr;
+                        </a>
+                    `;
+                });
+            });
+        };
+
+        /**
+         * Handles the input event from the search box.
+         * Filters products and triggers rendering of results.
+         */
+        const handleSearch = () => {
+            if (isLoading) return;
+
+            const query = searchInput.value.trim().toLowerCase();
+
+            if (query.length < 1) {
+                resultsContainer.innerHTML = '';
+                showStatus(`Ready to search through ${allProducts.length} products. Start typing!`);
+                return;
+            }
+
+            // Perform a "fuzzy" search (substring match)
+            const filteredProducts = allProducts
+                .filter(product => product.toLowerCase().includes(query))
+                .slice(0, MAX_RESULTS); // Limit results for performance and readability
+            
+            renderResults(filteredProducts);
+        };
+
+        // --- Event Listeners ---
+        searchInput.addEventListener('input', handleSearch);
+
+        // --- Initialisation ---
+        document.addEventListener('DOMContentLoaded', fetchAllProducts);
+
+    </script>
+</body>
+</html>
