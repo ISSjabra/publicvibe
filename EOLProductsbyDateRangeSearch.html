@@ -57,6 +57,14 @@
                     <option value="next12Months">Next 12 Months</option>
                 </select>
             </div>
+            
+            <!-- Product Filter Textbox -->
+            <div class="mb-4">
+                <label for="product-filter" class="block text-sm font-medium text-gray-700 mb-1">Filter by Product(s) (optional)</label>
+                <input type="text" id="product-filter" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g., ubuntu, python; citrix-vad">
+                <p class="text-xs text-gray-500 mt-1">Use a comma or semicolon to separate product slugs.</p>
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                 <!-- Start Date Input -->
                 <div>
@@ -121,6 +129,7 @@
             const searchLoader = document.getElementById('search-loader');
             const dateError = document.getElementById('date-error');
             const presetDropdown = document.getElementById('date-range-preset');
+            const productFilterInput = document.getElementById('product-filter');
 
             let allProductDetails = []; // To store all product data once fetched
 
@@ -137,30 +146,31 @@
             }
 
             /**
-             * Handles changes to the preset dropdown.
+             * Sets date inputs based on the selected preset.
+             * @param {boolean} shouldPerformSearch - Whether to trigger a search after setting dates.
              */
-            function handlePresetChange() {
+            function setDatesFromPreset(shouldPerformSearch = true) {
                 const preset = presetDropdown.value;
                 if (preset === 'custom') return;
 
                 const today = new Date();
-                // Set hours to 0 to avoid timezone issues with date comparisons
                 today.setHours(0, 0, 0, 0); 
                 let startDate, endDate;
 
+                // FIX: Corrected date calculations to prevent object reference bugs.
+                // Always create new Date objects for start and end dates.
                 switch (preset) {
                     case 'today':
-                        startDate = today;
-                        endDate = today;
+                        startDate = new Date(today);
+                        endDate = new Date(today);
                         break;
                     case 'tomorrow':
-                        startDate = new Date();
+                        startDate = new Date(today);
                         startDate.setDate(today.getDate() + 1);
-                        endDate = startDate;
+                        endDate = new Date(startDate);
                         break;
                     case 'thisWeek':
                         startDate = new Date(today);
-                        // Assuming the week starts on Sunday (day 0)
                         startDate.setDate(today.getDate() - today.getDay());
                         endDate = new Date(startDate);
                         endDate.setDate(startDate.getDate() + 6);
@@ -200,42 +210,65 @@
                         endDate = new Date(nextYear, 11, 31);
                         break;
                     case 'next3Months':
-                        startDate = today;
-                        endDate = new Date();
+                        startDate = new Date(today);
+                        endDate = new Date(today);
                         endDate.setMonth(endDate.getMonth() + 3);
                         break;
                     case 'next6Months':
-                        startDate = today;
-                        endDate = new Date();
+                        startDate = new Date(today);
+                        endDate = new Date(today);
                         endDate.setMonth(endDate.getMonth() + 6);
                         break;
                     case 'next12Months':
-                        startDate = today;
-                        endDate = new Date();
+                        startDate = new Date(today);
+                        endDate = new Date(today);
                         endDate.setFullYear(endDate.getFullYear() + 1);
                         break;
                 }
 
                 startDateInput.value = formatDate(startDate);
                 endDateInput.value = formatDate(endDate);
-                performSearch();
+                
+                if (shouldPerformSearch) {
+                    performSearch();
+                }
             }
 
             /**
-             * Checks URL for startDate and endDate parameters and triggers a search if found.
+             * Checks URL for parameters and triggers a search if found.
              */
             function handleUrlParameters() {
                 const params = new URLSearchParams(window.location.search);
                 const startDateParam = params.get('startDate');
                 const endDateParam = params.get('endDate');
+                const productsParam = params.get('products');
+                const presetParam = params.get('preset');
+
+                if (productsParam) {
+                    productFilterInput.value = productsParam;
+                }
+
+                if (presetParam) {
+                    const presetValue = presetParam.toLowerCase();
+                    const matchingOption = [...presetDropdown.options].find(option => option.value.toLowerCase() === presetValue);
+                    
+                    if (matchingOption) {
+                        console.log('Preset parameter found, setting dropdown and performing search.');
+                        presetDropdown.value = matchingOption.value;
+                        setDatesFromPreset(false); 
+                        if (!searchButton.disabled) {
+                            performSearch();
+                        }
+                        return;
+                    }
+                }
 
                 const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-
                 if (startDateParam && endDateParam && dateRegex.test(startDateParam) && dateRegex.test(endDateParam)) {
-                    console.log('URL parameters found, setting dates and performing search.');
+                    console.log('Manual date parameters found, setting dates and performing search.');
                     startDateInput.value = startDateParam;
                     endDateInput.value = endDateParam;
-                    presetDropdown.value = 'custom'; // Set dropdown to custom if URL params are used
+                    presetDropdown.value = 'custom';
                     if(!searchButton.disabled){
                         performSearch();
                     }
@@ -250,12 +283,10 @@
                 searchButton.disabled = true;
 
                 try {
-                    // 1. Get the list of all product slugs
                     const allProductsResponse = await fetch('https://endoflife.date/api/all.json');
                     if (!allProductsResponse.ok) throw new Error('Failed to fetch product list.');
                     const productSlugs = await allProductsResponse.json();
                     
-                    // 2. Fetch details for each product
                     const detailPromises = productSlugs.map(async (slug) => {
                         try {
                             const response = await fetch(`https://endoflife.date/api/${slug}.json`);
@@ -271,31 +302,29 @@
                         }
                     });
 
-                    // 3. Wait for all fetches and filter out failures
                     const results = await Promise.all(detailPromises);
                     allProductDetails = results.filter(Boolean);
                     
                     console.log(`Successfully loaded details for ${allProductDetails.length} products.`);
                     
-                    // 4. Update UI
                     initialLoader.classList.add('hidden');
-                    searchButton.disabled = false;
                     messageContainer.innerHTML = `<h2 class="text-xl font-semibold text-gray-800">Ready to Search</h2><p class="text-gray-600 mt-2">Enter a date range and click Search to begin.</p>`;
                     messageContainer.classList.remove('hidden');
-
-                    // 5. Check for URL parameters after data is loaded
-                    handleUrlParameters();
 
                 } catch (error) {
                     console.error('Error fetching initial product data:', error);
                     initialLoader.classList.add('hidden');
                     messageContainer.innerHTML = `<h2 class="text-xl font-semibold text-red-600">Error Loading Data</h2><p class="text-gray-600 mt-2">Could not load product information. Please try refreshing the page.</p>`;
                     messageContainer.classList.remove('hidden');
+                } finally {
+                    // Always re-enable search functionality and check URL params after fetch attempt.
+                    searchButton.disabled = false;
+                    handleUrlParameters();
                 }
             }
 
             /**
-             * Performs the search based on user input dates.
+             * Performs the search based on user input dates and product filter.
              */
             function performSearch() {
                 resultsContainer.innerHTML = '';
@@ -304,6 +333,9 @@
 
                 const startDate = startDateInput.value;
                 const endDate = endDateInput.value;
+                
+                const filterText = productFilterInput.value.trim().toLowerCase();
+                const productFilter = filterText ? filterText.split(/[;,]+/).map(item => item.trim()).filter(Boolean) : [];
 
                 if (!startDate || !endDate) {
                     dateError.textContent = 'Please select both a start and end date.';
@@ -321,11 +353,14 @@
 
                 setTimeout(() => {
                     const foundProducts = [];
-                    // Add 'T00:00:00' to ensure dates are parsed in the local timezone consistently
                     const start = new Date(startDate + 'T00:00:00');
                     const end = new Date(endDate + 'T00:00:00');
                     
                     allProductDetails.forEach(product => {
+                        if (productFilter.length > 0 && !productFilter.some(filter => product.slug.toLowerCase().includes(filter))) {
+                            return;
+                        }
+
                         if (product && Array.isArray(product.cycles)) {
                             product.cycles.forEach(cycle => {
                                 if (typeof cycle.eol === 'string') {
@@ -354,7 +389,7 @@
              */
             function displayResults(products) {
                 if (products.length === 0) {
-                    messageContainer.innerHTML = `<h2 class="text-xl font-semibold text-gray-800">No Results Found</h2><p class="text-gray-600 mt-2">No products reached their end-of-life in the selected date range.</p>`;
+                    messageContainer.innerHTML = `<h2 class="text-xl font-semibold text-gray-800">No Results Found</h2><p class="text-gray-600 mt-2">No products matched your search criteria.</p>`;
                     messageContainer.classList.remove('hidden');
                     return;
                 }
@@ -374,9 +409,8 @@
 
             // Event Listeners
             searchButton.addEventListener('click', performSearch);
-            presetDropdown.addEventListener('change', handlePresetChange);
+            presetDropdown.addEventListener('change', () => setDatesFromPreset(true));
             
-            // Set dropdown to custom when manual date inputs are changed
             startDateInput.addEventListener('change', () => presetDropdown.value = 'custom');
             endDateInput.addEventListener('change', () => presetDropdown.value = 'custom');
             
