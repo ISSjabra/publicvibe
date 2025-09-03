@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Hierarchy Org Chart</title>
+    <style>
+        /* --- FONT AND BASE STYLES --- */
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            overflow: hidden;
+            background-color: #f8fafc;
+            color: #1e293b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* --- LAYOUT & HEADER --- */
+        .main-container {
+            width: 100%;
+            display: flex;
+            gap: 1rem;
+            padding: 1rem;
+            box-sizing: border-box;
+        }
+        .chart-area {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        header h1 { font-size: 1.875rem; font-weight: 700; color: #0f172a; }
+        header p { font-size: 1.125rem; color: #475569; margin-top: 0.5rem; }
+
+        /* --- SEARCH STYLES --- */
+        .search-input {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.375rem;
+            margin-bottom: 1rem;
+            box-sizing: border-box;
+        }
+        .search-input:focus {
+            outline: 2px solid #3b82f6;
+            border-color: transparent;
+        }
+
+        /* --- SIDE PANEL --- */
+        #side-panel {
+            width: 280px;
+            flex-shrink: 0;
+            background-color: #f1f5f9;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+        }
+        #side-panel h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        #unassigned-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+        .unassigned-contact {
+            background-color: white;
+            padding: 0.75rem;
+            border-radius: 0.375rem;
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            margin-bottom: 0.5rem;
+            cursor: grab;
+        }
+        .unassigned-contact:active { cursor: grabbing; }
+        .unassigned-contact p { margin: 0; }
+        .unassigned-contact .name { font-weight: 600; color: #1e293b; }
+        .unassigned-contact .title { font-size: 0.875rem; color: #64748b; }
+
+        /* --- ORG CHART STYLES --- */
+        #org-chart-container {
+            width: 100%;
+            flex-grow: 1; /* Fill available space */
+            overflow: hidden;
+            cursor: grab;
+            position: relative;
+            background-color: #f1f5f9;
+            border-radius: 0.5rem;
+            box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
+        }
+        #chart-wrapper {
+            transform-origin: 0 0;
+            transition: transform 0.1s linear;
+            display: inline-block;
+        }
+        .org-chart { display: flex; flex-direction: column; align-items: center; }
+        .org-chart ul { display: flex; justify-content: center; list-style-type: none; padding: 0; position: relative; margin-top: 2rem; } /* DENSE */
+        .org-chart li { display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; padding: 0 0.4rem; } /* DENSE */
+        
+        /* --- CONNECTOR LINES --- */
+        .contact-card { position: relative; cursor: pointer; transition: opacity 0.3s ease, box-shadow 0.2s; }
+        .org-chart li:has(> ul) > .contact-card::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-1px); border-left: 2px solid #cbd5e1; width: 0; height: 1rem; } /* DENSE */
+        .org-chart li::before { content: ''; position: absolute; top: -1rem; left: 50%; border-left: 2px solid #cbd5e1; width: 0; height: 1rem; } /* DENSE */
+        .org-chart li::after { content: ''; position: absolute; top: -1rem; left: 0; border-top: 2px solid #cbd5e1; width: 100%; height: 0; } /* DENSE */
+        .org-chart li:first-child::after { left: 50%; width: 50%; }
+        .org-chart li:last-child::after { width: 50%; }
+        .org-chart li:only-child::after { display: none; }
+        #chart-wrapper > .org-chart > ul > li::before, #chart-wrapper > .org-chart > ul > li::after { display: none; }
+        .drop-target { box-shadow: 0 0 0 3px #3b82f6 !important; } /* Highlight for drop target */
+        .search-match { box-shadow: 0 0 0 3px #16a34a !important; } /* Highlight for search match */
+        .search-dim { opacity: 0.3; }
+
+        /* --- MODAL STYLES --- */
+        #contact-modal { position: fixed; inset: 0; background-color: rgba(0, 0, 0, 0.6); display: none; align-items: center; justify-content: center; padding: 1rem; z-index: 50; transition: opacity 0.3s ease; }
+        #contact-modal.is-open { display: flex; }
+        #modal-panel { background-color: white; border-radius: 0.5rem; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); width: 100%; max-width: 28rem; transform: scale(0.95); transition: transform 0.3s ease; }
+        #contact-modal.is-open #modal-panel { transform: scale(1); }
+        .modal-input { width: 100%; border: 1px solid #d1d5db; border-radius: 0.25rem; padding: 0.5rem; font-size: 1rem; margin-top: 0.25rem; }
+        .modal-button { border: none; border-radius: 0.375rem; padding: 0.5rem 1rem; font-weight: 600; cursor: pointer; }
+        .btn-primary { background-color: #2563eb; color: white; }
+        .btn-secondary { background-color: #e5e7eb; color: #374151; }
+    </style>
+</head>
+<body>
+
+    <div class="main-container">
+        <div id="side-panel">
+            <h2>Unassigned Contacts</h2>
+            <input type="search" id="unassigned-search" class="search-input" placeholder="Search unassigned...">
+            <ul id="unassigned-list">
+                <!-- Unassigned contacts will be populated here -->
+            </ul>
+        </div>
+        <div class="chart-area">
+            <header>
+                <h1>Contact Hierarchy</h1>
+                <p>Drag from the side panel to assign a manager.</p>
+            </header>
+            <input type="search" id="chart-search" class="search-input" placeholder="Search hierarchy...">
+            <div id="org-chart-container">
+                <!-- JavaScript will populate this area -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Contact Details -->
+    <div id="contact-modal">
+        <div id="modal-panel">
+            <!-- Modal content will be injected here -->
+        </div>
+    </div>
+
+    <script>
+        let allContacts = [];
+
+        async function fetchContactsFromSalesforce() {
+            console.log("Simulating fetch from Salesforce...");
+            return [
+                { id: '001', name: 'Elena Petrova', title: 'President & CEO', reportsToId: null, department: 'Executive', email: 'elena.p@example.com', phone: '555-0101' },
+                { id: '002', name: 'Marcus Chen', title: 'VP of Engineering', reportsToId: '001', department: 'Engineering', email: 'marcus.c@example.com', phone: '555-0102' },
+                { id: '003', name: 'Sophia Rossi', title: 'VP of Sales', reportsToId: '001', department: 'Sales', email: 'sophia.r@example.com', phone: '555-0103' },
+                { id: '004', name: 'Liam Goldberg', title: 'VP of Marketing', reportsToId: '001', department: 'Marketing', email: 'liam.g@example.com', phone: '555-0104' },
+                { id: '005', name: 'Aisha Khan', title: 'Director of Engineering', reportsToId: '002', department: 'Engineering', email: 'aisha.k@example.com', phone: '555-0105' },
+                { id: '006', name: 'David Rodriguez', title: 'Lead Software Engineer', reportsToId: '005', department: 'Engineering', email: 'david.r@example.com', phone: '555-0106' },
+                { id: '007', name: 'Chloe Kim', title: 'Software Engineer', reportsToId: '006', department: 'Engineering', email: 'chloe.k@example.com', phone: '555-0107' },
+                { id: '008', name: 'Ben Carter', title: 'Software Engineer', reportsToId: '006', department: 'Engineering', email: 'ben.c@example.com', phone: '555-0108' },
+                { id: '009', name: 'Olivia Martinez', title: 'QA Engineer', reportsToId: '005', department: 'Engineering', email: 'olivia.m@example.com', phone: '555-0109' },
+                { id: '010', name: 'James Wilson', title: 'Sales Director, Americas', reportsToId: '003', department: 'Sales', email: 'james.w@example.com', phone: '555-0110' },
+                { id: '011', name: 'Isabella Garcia', title: 'Account Executive', reportsToId: '010', department: 'Sales', email: 'isabella.g@example.com', phone: '555-0111' },
+                { id: '012', name: 'Noah Brown', title: 'Account Executive', reportsToId: '010', department: 'Sales', email: 'noah.b@example.com', phone: '555-0112' },
+                { id: '013', name: 'Ava Jones', title: 'Sales Director, EMEA', reportsToId: '003', department: 'Sales', email: 'ava.j@example.com', phone: '555-0113' },
+                { id: '014', name: 'Lucas Williams', title: 'Marketing Manager', reportsToId: '004', department: 'Marketing', email: 'lucas.w@example.com', phone: '555-0114' },
+                { id: '015', name: 'Mia Wong', title: 'Product Manager', reportsToId: null, department: 'Product', email: 'mia.w@example.com', phone: '555-0115' },
+                { id: '016', name: 'Leo Gonzalez', title: 'Data Scientist', reportsToId: null, department: 'Analytics', email: 'leo.g@example.com', phone: '555-0116' },
+            ];
+        }
+        
+        function createContactCard(contact) {
+            let hash = 0;
+            for (let i = 0; i < contact.name.length; i++) { hash = contact.name.charCodeAt(i) + ((hash << 5) - hash); }
+            const color = `hsl(${hash % 360}, 70%, 80%)`;
+            const initial = contact.name.split(' ').map(n => n[0]).join('');
+            return `
+                <div class="contact-card" data-contact-id="${contact.id}" data-contact-name="${contact.name.toLowerCase()}" data-contact-title="${contact.title.toLowerCase()}" style="background-color: white; box-shadow: 0 2px 4px -1px rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); border-radius: 0.375rem; padding: 0.4rem; width: 11rem; border-top: 3px solid #3b82f6;">
+                    <div style="display: flex; align-items: center;">
+                        <div style="background-color: ${color}; width: 2rem; height: 2rem; border-radius: 9999px; display: flex; align-items: center; justify-content: center; color: #1e40af; font-weight: 600; font-size: 0.8rem; flex-shrink: 0; margin-right: 0.4rem;">
+                            ${initial}
+                        </div>
+                        <div style="text-align: left; overflow: hidden;">
+                            <p style="font-weight: 600; font-size: 0.85rem; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.1;">${contact.name}</p>
+                            <p style="color: #64748b; font-size: 0.75rem; line-height: 1.1;">${contact.title}</p>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        function buildHierarchy(list, parentId) {
+            const children = list.filter(item => item.reportsToId === parentId);
+            if (children.length === 0) return [];
+            return children.map(child => ({ ...child, children: buildHierarchy(list, child.id) }));
+        }
+
+        function generateChartHTML(nodes) {
+            if (!nodes || nodes.length === 0) return '';
+            let html = '<ul>';
+            nodes.forEach(node => {
+                html += `<li>${createContactCard(node)}`;
+                if (node.children && node.children.length > 0) {
+                    html += generateChartHTML(node.children);
+                }
+                html += '</li>';
+            });
+            html += '</ul>';
+            return html;
+        }
+
+        function showModal(contactId, isEditing = false) {
+            const contact = allContacts.find(c => c.id === contactId);
+            if (!contact) return;
+
+            const reportsTo = allContacts.find(c => c.id === contact.reportsToId);
+            const modalPanel = document.getElementById('modal-panel');
+            
+            if (isEditing) {
+                modalPanel.innerHTML = `
+                    <div style="padding: 1.5rem;">
+                        <div style="margin-bottom: 1rem;">
+                            <label for="edit-name" style="font-weight: 600; font-size: 0.875rem;">Name</label>
+                            <input type="text" id="edit-name" class="modal-input" value="${contact.name}">
+                        </div>
+                        <div style="margin-bottom: 1.5rem;">
+                            <label for="edit-title" style="font-weight: 600; font-size: 0.875rem;">Title</label>
+                            <input type="text" id="edit-title" class="modal-input" value="${contact.title}">
+                        </div>
+                        <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+                            <button id="cancel-edit" class="modal-button btn-secondary">Cancel</button>
+                            <button id="save-edit" class="modal-button btn-primary">Save Changes</button>
+                        </div>
+                    </div>`;
+                
+                document.getElementById('save-edit').addEventListener('click', () => {
+                    const newName = document.getElementById('edit-name').value;
+                    const newTitle = document.getElementById('edit-title').value;
+                    
+                    contact.name = newName;
+                    contact.title = newTitle;
+
+                    console.log(`Saving changes for ${contact.id}: ${newName}, ${newTitle}`);
+
+                    hideModal();
+                    renderApp();
+                });
+
+                document.getElementById('cancel-edit').addEventListener('click', () => showModal(contactId, false));
+
+            } else {
+                modalPanel.innerHTML = `
+                    <div style="padding: 1.5rem;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                            <h2 style="font-size: 1.5rem; font-weight: 700;">${contact.name}</h2>
+                            <button id="close-modal" style="background: none; border: none; font-size: 2rem; color: #9ca3af; cursor: pointer;">&times;</button>
+                        </div>
+                        <p style="color: #475569; font-size: 1.125rem; margin-bottom: 1.5rem;">${contact.title}</p>
+                        <div style="font-size: 0.875rem; display: grid; gap: 0.75rem;">
+                            <div><span style="font-weight: 600; width: 6rem; color: #64748b; display: inline-block;">Department</span> <span>${contact.department}</span></div>
+                            <div><span style="font-weight: 600; width: 6rem; color: #64748b; display: inline-block;">Email</span> <a href="mailto:${contact.email}" style="color: #2563eb;">${contact.email}</a></div>
+                            <div><span style="font-weight: 600; width: 6rem; color: #64748b; display: inline-block;">Phone</span> <span>${contact.phone}</span></div>
+                            <div><span style="font-weight: 600; width: 6rem; color: #64748b; display: inline-block;">Reports To</span> <span>${reportsTo ? reportsTo.name : 'N/A'}</span></div>
+                        </div>
+                        <div style="text-align: right; margin-top: 1.5rem;">
+                            <button id="edit-contact" class="modal-button btn-primary">Edit Contact</button>
+                        </div>
+                    </div>`;
+                
+                document.getElementById('edit-contact').addEventListener('click', () => showModal(contactId, true));
+                document.getElementById('close-modal').addEventListener('click', hideModal);
+            }
+
+            const modal = document.getElementById('contact-modal');
+            modal.classList.add('is-open');
+        }
+
+        function hideModal() {
+            document.getElementById('contact-modal').classList.remove('is-open');
+        }
+
+        function renderApp() {
+            const managerIds = new Set(allContacts.map(c => c.reportsToId).filter(id => id !== null));
+            const rootNodes = allContacts.filter(c => c.reportsToId === null && managerIds.has(c.id));
+            const unassignedContacts = allContacts.filter(c => c.reportsToId === null && !managerIds.has(c.id));
+
+            if (rootNodes.length === 0 && allContacts.length > 0) {
+                const firstContactWithoutManager = allContacts.find(c => c.reportsToId === null);
+                if (firstContactWithoutManager) {
+                    rootNodes.push(firstContactWithoutManager);
+                    const index = unassignedContacts.findIndex(c => c.id === firstContactWithoutManager.id);
+                    if (index > -1) unassignedContacts.splice(index, 1);
+                }
+            }
+
+            const unassignedList = document.getElementById('unassigned-list');
+            unassignedList.innerHTML = '';
+            unassignedContacts.forEach(contact => {
+                const li = document.createElement('li');
+                li.className = 'unassigned-contact';
+                li.draggable = true;
+                li.dataset.contactId = contact.id;
+                li.innerHTML = `<p class="name">${contact.name}</p><p class="title">${contact.title}</p>`;
+                unassignedList.appendChild(li);
+            });
+
+            const container = document.getElementById('org-chart-container');
+            const hierarchy = rootNodes.map(node => ({ ...node, children: buildHierarchy(allContacts, node.id) }));
+            const chartHTML = `<div class="org-chart">${generateChartHTML(hierarchy)}</div>`;
+            container.innerHTML = `<div id="chart-wrapper">${chartHTML}</div>`;
+            
+            const chartWrapper = document.getElementById('chart-wrapper');
+            const containerRect = container.getBoundingClientRect();
+            const chartRect = chartWrapper.getBoundingClientRect();
+            let scale = 1.0; // DENSE
+            let panX = (containerRect.width - chartRect.width * scale) / 2;
+            let panY = 20;
+            chartWrapper.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+        }
+
+        // --- MAIN EXECUTION & EVENT LISTENERS ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            const container = document.getElementById('org-chart-container');
+            const modal = document.getElementById('contact-modal');
+            const unassignedList = document.getElementById('unassigned-list');
+            const unassignedSearch = document.getElementById('unassigned-search');
+            const chartSearch = document.getElementById('chart-search');
+
+            try {
+                allContacts = await fetchContactsFromSalesforce();
+            } catch (error) {
+                console.error('Failed to fetch contacts:', error);
+                container.innerHTML = '<p style="text-align: center; padding: 2rem; color: red;">Could not load contact data.</p>';
+                return;
+            }
+
+            renderApp();
+            
+            let scale = 1.0, panX = 0, panY = 20, isPanning = false, startX, startY;
+            const chartWrapper = document.getElementById('chart-wrapper');
+            const containerRect = container.getBoundingClientRect();
+            const chartRect = chartWrapper.getBoundingClientRect();
+            panX = (containerRect.width - chartRect.width * scale) / 2;
+            applyTransform();
+
+            function applyTransform() {
+                chartWrapper.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+            }
+
+            // Search Logic
+            unassignedSearch.addEventListener('input', e => {
+                const searchTerm = e.target.value.toLowerCase();
+                const contacts = unassignedList.querySelectorAll('.unassigned-contact');
+                contacts.forEach(contact => {
+                    const name = contact.querySelector('.name').textContent.toLowerCase();
+                    const title = contact.querySelector('.title').textContent.toLowerCase();
+                    if (name.includes(searchTerm) || title.includes(searchTerm)) {
+                        contact.style.display = 'block';
+                    } else {
+                        contact.style.display = 'none';
+                    }
+                });
+            });
+
+            chartSearch.addEventListener('input', e => {
+                const searchTerm = e.target.value.toLowerCase();
+                const allCards = container.querySelectorAll('.contact-card');
+                if (searchTerm.length === 0) {
+                    allCards.forEach(card => {
+                        card.classList.remove('search-match', 'search-dim');
+                    });
+                    return;
+                }
+                allCards.forEach(card => {
+                    const name = card.dataset.contactName;
+                    const title = card.dataset.contactTitle;
+                    if (name.includes(searchTerm) || title.includes(searchTerm)) {
+                        card.classList.add('search-match');
+                        card.classList.remove('search-dim');
+                    } else {
+                        card.classList.remove('search-match');
+                        card.classList.add('search-dim');
+                    }
+                });
+            });
+
+            // Drag and Drop Logic
+            unassignedList.addEventListener('dragstart', e => {
+                if (e.target.classList.contains('unassigned-contact')) {
+                    e.dataTransfer.setData('text/plain', e.target.dataset.contactId);
+                    e.dataTransfer.effectAllowed = 'move';
+                }
+            });
+            container.addEventListener('dragover', e => {
+                e.preventDefault();
+                const targetCard = e.target.closest('.contact-card');
+                if (targetCard) targetCard.classList.add('drop-target');
+            });
+            container.addEventListener('dragleave', e => {
+                const targetCard = e.target.closest('.contact-card');
+                if (targetCard) targetCard.classList.remove('drop-target');
+            });
+            container.addEventListener('drop', e => {
+                e.preventDefault();
+                const targetCard = e.target.closest('.contact-card');
+                if (targetCard) {
+                    targetCard.classList.remove('drop-target');
+                    const draggedId = e.dataTransfer.getData('text/plain');
+                    const targetId = targetCard.dataset.contactId;
+                    const draggedContact = allContacts.find(c => c.id === draggedId);
+                    if (draggedContact && draggedId !== targetId) {
+                        draggedContact.reportsToId = targetId;
+                        console.log(`Assigned ${draggedContact.name} to report to ${targetId}`);
+                        renderApp();
+                    }
+                }
+            });
+
+            // Pan and Zoom Logic
+            container.addEventListener('mousedown', e => {
+                if (e.target.closest('.contact-card')) return;
+                isPanning = true; startX = e.clientX - panX; startY = e.clientY - panY; container.style.cursor = 'grabbing';
+            });
+            container.addEventListener('mouseup', () => { isPanning = false; container.style.cursor = 'grab'; });
+            container.addEventListener('mouseleave', () => { isPanning = false; container.style.cursor = 'grab'; });
+            container.addEventListener('mousemove', e => {
+                if (!isPanning) return;
+                panX = e.clientX - startX; panY = e.clientY - startY; applyTransform();
+            });
+            container.addEventListener('wheel', e => {
+                e.preventDefault();
+                const rect = container.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
+                const scaleAmount = -e.deltaY > 0 ? 1.1 : 0.9;
+                const newScale = Math.max(0.2, Math.min(3.0, scale * scaleAmount));
+                panX = mouseX - (mouseX - panX) * (newScale / scale);
+                panY = mouseY - (mouseY - panY) * (newScale / scale);
+                scale = newScale;
+                applyTransform();
+            });
+
+            // Modal Logic
+            container.addEventListener('click', e => {
+                const card = e.target.closest('.contact-card');
+                if (card) showModal(card.dataset.contactId);
+            });
+            modal.addEventListener('click', e => {
+                if (e.target.id === 'contact-modal') hideModal();
+            });
+        });
+    </script>
+</body>
+</html>
