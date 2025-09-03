@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compact Address Picker Modal</title>
+    <style>
+        /* --- Base Styles & Font --- */
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            margin: 0;
+            background-color: #F3F4F6; /* bg-gray-100 */
+        }
+        
+        /* --- Animations --- */
+        .modal-fade-in {
+            animation: fadeIn 0.2s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* --- Layout & Sizing --- */
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .flex-1 { flex: 1 1 0%; }
+        .items-center { align-items: center; }
+        .justify-center { justify-content: center; }
+        .justify-between { justify-content: space-between; }
+        .justify-end { justify-content: flex-end; }
+        .gap-2 { gap: 0.5rem; }
+        .gap-3 { gap: 0.75rem; }
+        .space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem; }
+        .fixed { position: fixed; }
+        .absolute { position: absolute; }
+        .inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
+        .min-h-screen { min-height: 100vh; }
+        .w-full { width: 100%; }
+        .w-6 { width: 1.5rem; }
+        .h-6 { height: 1.5rem; }
+        .w-4 { width: 1rem; }
+        .h-4 { height: 1rem; }
+        .w-5 { width: 1.25rem; }
+        .h-5 { height: 1.25rem; }
+        .w-64 { width: 16rem; }
+        .max-w-3xl { max-width: 48rem; }
+        .max-w-lg { max-width: 32rem; }
+        .mx-auto { margin-left: auto; margin-right: auto; }
+        .overflow-y-auto { overflow-y: auto; }
+        .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* --- Spacing (Margin & Padding) --- */
+        .p-2 { padding: 0.5rem; }
+        .p-4 { padding: 1rem; }
+        .p-6 { padding: 1.5rem; }
+        .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+        .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+        .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+        .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+        .px-5 { padding-left: 1.25rem; padding-right: 1.25rem; }
+        .mt-1 { margin-top: 0.25rem; }
+        .mt-2 { margin-top: 0.5rem; }
+        .mt-4 { margin-top: 1rem; }
+        .mt-6 { margin-top: 1.5rem; }
+        .ml-2 { margin-left: 0.5rem; }
+        .mr-4 { margin-right: 1rem; }
+        .mr-auto { margin-right: auto; }
+        .mb-4 { margin-bottom: 1rem; }
+
+        /* --- Typography --- */
+        .text-lg { font-size: 1.125rem; }
+        .text-sm { font-size: 0.875rem; }
+        .text-xs { font-size: 0.75rem; }
+        .font-bold { font-weight: 700; }
+        .font-semibold { font-weight: 600; }
+        .font-medium { font-weight: 500; }
+        .uppercase { text-transform: uppercase; }
+        .text-gray-800 { color: #1F2937; }
+        .text-gray-700 { color: #374151; }
+        .text-gray-600 { color: #4B5563; }
+        .text-gray-500 { color: #6B7280; }
+        .text-gray-400 { color: #9CA3AF; }
+        .text-white { color: #FFFFFF; }
+        .text-blue-600 { color: #2563EB; }
+        .text-red-600 { color: #DC2626; }
+        .hover\:text-gray-600:hover { color: #4B5563; }
+        .hover\:text-blue-600:hover { color: #2563EB; }
+        .hover\:text-blue-800:hover { color: #1E40AF; }
+        .hover\:text-red-700:hover { color: #B91C1C; }
+
+        /* --- Backgrounds & Borders --- */
+        .bg-white { background-color: #FFFFFF; }
+        .bg-gray-50 { background-color: #F9FAFB; }
+        .bg-gray-800 { background-color: #1F2937; }
+        .bg-opacity-50 { background-color: rgba(31, 41, 55, 0.5); }
+        .bg-blue-600 { background-color: #2563EB; }
+        .hover\:bg-blue-700:hover { background-color: #1D4ED8; }
+        .hover\:bg-gray-100:hover { background-color: #F3F4F6; }
+        .border { border-width: 1px; }
+        .border-b { border-bottom-width: 1px; }
+        .border-t { border-top-width: 1px; }
+        .border-gray-200 { border-color: #E5E7EB; }
+        .border-gray-300 { border-color: #D1D5DB; }
+        .rounded-xl { border-radius: 0.75rem; }
+        .rounded-lg { border-radius: 0.5rem; }
+        .rounded-md { border-radius: 0.375rem; }
+        .rounded-b-xl { border-bottom-left-radius: 0.75rem; border-bottom-right-radius: 0.75rem; }
+        
+        /* --- Effects & Transitions --- */
+        .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+        .shadow-xl { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
+        .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
+        .transition-colors { transition-property: color, background-color, border-color, text-decoration-color, fill, stroke; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
+
+        /* --- Form Elements --- */
+        input[type="text"], input[type="hidden"] {
+            display: block;
+            width: 100%;
+            border-radius: 0.375rem;
+            border: 1px solid #D1D5DB;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            padding: 0.5rem 0.75rem;
+        }
+        input[type="text"]:focus {
+            outline: 2px solid transparent;
+            outline-offset: 2px;
+            border-color: #2563EB;
+            box-shadow: 0 0 0 1px #2563EB;
+        }
+        input[type="checkbox"] {
+            height: 1rem;
+            width: 1rem;
+            border-radius: 0.25rem;
+            border-color: #D1D5DB;
+            color: #2563EB;
+        }
+        label { display: block; font-size: 0.875rem; font-weight: 500; color: #374151; }
+        button {
+            background-color: transparent;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+        }
+
+        /* --- Component-Specific Styles --- */
+        .role-btn {
+            display: flex; align-items: center; justify-content: center;
+            width: 2rem; height: 2rem; border-radius: 9999px;
+            font-weight: 600; font-size: 0.875rem;
+            transition: all 0.2s ease-in-out;
+        }
+        .role-btn.active-legal { background-color: #3B82F6; color: white; }
+        .role-btn.inactive-legal { background-color: #E5E7EB; color: #4B5563; }
+        .role-btn.active-billing { background-color: #10B981; color: white; }
+        .role-btn.inactive-billing { background-color: #E5E7EB; color: #4B5563; }
+        .role-btn.active-shipping { background-color: #F59E0B; color: white; }
+        .role-btn.inactive-shipping { background-color: #E5E7EB; color: #4B5563; }
+        .role-btn:disabled {
+            background-color: #F3F4F6;
+            color: #D1D5DB;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        .address-row.inactive { opacity: 0.5; }
+        .address-row.inactive .address-text { text-decoration: line-through; }
+        #formModalOverlay { display: none; }
+        .cursor-not-allowed { cursor: not-allowed; }
+        .sm\:flex-row { flex-direction: row; }
+        .sm\:mb-0 { margin-bottom: 0; }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+
+    <!-- Main Modal Container -->
+    <div id="addressModal" class="bg-white rounded-xl shadow-2xl w-full max-w-3xl mx-auto modal-fade-in flex flex-col" style="height: 90vh; max-height: 700px;">
+        <div class="p-6 border-b border-gray-200">
+            <!-- Header -->
+            <header class="flex justify-between items-center">
+                <h2 class="text-lg font-bold text-gray-800">Manage Opportunity Addresses</h2>
+                <button id="closeModalBtn" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </header>
+             <!-- Filter Controls -->
+            <div class="mt-4 flex justify-end">
+                <label class="flex items-center text-sm text-gray-600">
+                    <input type="checkbox" id="showInactiveToggle" class="h-4 w-4 rounded-md border-gray-300 text-blue-600">
+                    <span class="ml-2">Show Inactive</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Address List -->
+        <main class="p-6 flex-1 overflow-y-auto">
+             <div id="addressListContainer">
+                <!-- Address rows are dynamically inserted here -->
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="flex flex-col sm:flex-row justify-between items-center p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+            <button id="addNewAddressBtn" class="text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors mb-4 sm:mb-0">
+                + Add New Address
+            </button>
+            <div class="flex gap-3">
+                <button class="px-5 py-2 text-sm font-semibold bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">Cancel</button>
+                <button class="px-5 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm">Save</button>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Add/Edit Form Modal -->
+    <div id="formModalOverlay" class="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center p-4 z-40">
+        <div id="formModal" class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-auto modal-fade-in">
+            <form id="addressForm">
+                <div class="p-6">
+                    <header class="flex justify-between items-center">
+                        <h2 id="formModalTitle" class="text-lg font-bold text-gray-800">Add New Address</h2>
+                        <button type="button" id="closeFormModalBtn" class="text-gray-400 hover:text-gray-600 transition-colors">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </header>
+                    <div class="mt-6 space-y-4">
+                        <input type="hidden" id="addressId" name="id">
+                        <div>
+                            <label for="addressName">Address Name</label>
+                            <input type="text" id="addressName" name="name" required>
+                        </div>
+                        <div>
+                            <label for="addressStreet">Street Address</label>
+                            <input type="text" id="addressStreet" name="street" required>
+                        </div>
+                        <div>
+                            <label for="addressVat">VAT Number (Optional)</label>
+                            <input type="text" id="addressVat" name="vatNumber">
+                        </div>
+                    </div>
+                </div>
+                <footer class="flex justify-between items-center p-6 bg-gray-50 rounded-b-xl">
+                    <button type="button" id="deactivateBtn" class="px-5 py-2 text-sm font-semibold text-red-600 hover:text-red-700 transition-colors">Deactivate</button>
+                    <div class="flex gap-3">
+                        <button type="button" id="cancelFormBtn" class="px-5 py-2 text-sm font-semibold bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">Cancel</button>
+                        <button type="submit" class="px-5 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm">Save Address</button>
+                    </div>
+                </footer>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // --- DATA ---
+            let addresses = [
+                { id: 1, name: 'Employees Retirement System of Texas', street: '200 East 18th Street, Austin, TX 78701', vatNumber: 'VAT12345DE', isLegal: true, isBilling: true, isShipping: false, isActive: true, canBeLegal: true, canBeBilling: true, canBeShipping: true },
+                { id: 2, name: 'ERS of Texas (Mail)', street: 'P.O. Box 13207, Austin, TX 78711-3207', vatNumber: null, isLegal: false, isBilling: false, isShipping: true, isActive: true, canBeLegal: false, canBeBilling: true, canBeShipping: true },
+                { id: 3, name: 'Corporate Headquarters', street: '123 Innovation Drive, Palo Alto, CA 94304', vatNumber: null, isLegal: false, isBilling: false, isShipping: false, isActive: true, canBeLegal: true, canBeBilling: true, canBeShipping: true },
+                { id: 4, name: 'Old Office (Deactivated)', street: '456 Legacy Lane, Cupertino, CA 95014', vatNumber: null, isLegal: false, isBilling: false, isShipping: false, isActive: false, canBeLegal: true, canBeBilling: true, canBeShipping: true },
+                { id: 5, name: 'European HQ', street: '10 Rue de la Paix, 75002 Paris, France', vatNumber: 'FR9876543', isLegal: false, isBilling: false, isShipping: false, isActive: true, canBeLegal: true, canBeBilling: true, canBeShipping: true },
+                ...Array.from({ length: 15 }, (_, i) => ({
+                    id: 6 + i, name: `Branch Office #${i + 1}`, street: `${100 + i * 5} Commerce St, City ${i + 1}, ST 12345`,
+                    vatNumber: null, isLegal: false, isBilling: false, isShipping: false, isActive: true, canBeLegal: true, canBeBilling: true, canBeShipping: true
+                }))
+            ];
+
+            // --- DOM ELEMENTS ---
+            const addressContainer = document.getElementById('addressListContainer');
+            const closeModalBtn = document.getElementById('closeModalBtn');
+            const showInactiveToggle = document.getElementById('showInactiveToggle');
+            const addNewAddressBtn = document.getElementById('addNewAddressBtn');
+            const formModalOverlay = document.getElementById('formModalOverlay');
+            const addressForm = document.getElementById('addressForm');
+            const formModalTitle = document.getElementById('formModalTitle');
+            const closeFormModalBtn = document.getElementById('closeFormModalBtn');
+            const cancelFormBtn = document.getElementById('cancelFormBtn');
+            const deactivateBtn = document.getElementById('deactivateBtn');
+            
+            // --- RENDER FUNCTION ---
+            function createAddressRowElement(address) {
+                const row = document.createElement('div');
+                row.className = `address-row flex items-center py-3 px-3 border-b border-gray-200 ${address.isActive ? '' : 'inactive'}`;
+                row.dataset.id = address.id;
+
+                row.innerHTML = `
+                    <div class="flex-1 min-w-0 mr-4">
+                        <div class="address-text">
+                            <p class="font-semibold text-gray-800 truncate">${address.name}</p>
+                            <p class="text-sm text-gray-500 truncate">${address.street}</p>
+                        </div>
+                    </div>
+                    <div class="text-sm text-gray-600 truncate" style="flex-basis: 150px;">
+                        ${address.vatNumber || '—'}
+                    </div>
+                    <div class="flex items-center justify-end gap-2" style="flex-basis: 180px;">
+                        <div data-type="edit" class="text-gray-400 hover:text-blue-600 cursor-pointer p-2" title="Edit Address">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L16.732 3.732z"></path></svg>
+                        </div>
+                        <button data-type="legal" class="role-btn ${address.isLegal ? 'active-legal' : 'inactive-legal'}" title="Set as Legal Address" ${!address.canBeLegal ? 'disabled' : ''}>L</button>
+                        <button data-type="billing" class="role-btn ${address.isBilling ? 'active-billing' : 'inactive-billing'}" title="Set as Billing Address" ${!address.canBeBilling ? 'disabled' : ''}>B</button>
+                        <button data-type="shipping" class="role-btn ${address.isShipping ? 'active-shipping' : 'inactive-shipping'}" title="Set as Shipping Address" ${!address.canBeShipping ? 'disabled' : ''}>S</button>
+                    </div>
+                `;
+
+                // --- EVENT LISTENERS ---
+                row.querySelector('[data-type="edit"]').addEventListener('click', () => showFormModal(address));
+
+                if (address.isActive) {
+                    row.querySelector('[data-type="legal"]').addEventListener('click', () => {
+                        const currentlyActive = address.isLegal;
+                        addresses.forEach(a => a.isLegal = false);
+                        if (!currentlyActive) address.isLegal = true;
+                        renderAll();
+                    });
+                    row.querySelector('[data-type="billing"]').addEventListener('click', () => {
+                        const currentlyActive = address.isBilling;
+                        addresses.forEach(a => a.isBilling = false);
+                        if (!currentlyActive) address.isBilling = true;
+                        renderAll();
+                    });
+                    row.querySelector('[data-type="shipping"]').addEventListener('click', () => {
+                        const currentlyActive = address.isShipping;
+                        addresses.forEach(a => a.isShipping = false);
+                        if (!currentlyActive) address.isShipping = true;
+                        renderAll();
+                    });
+                } else {
+                    ['legal', 'billing', 'shipping'].forEach(type => {
+                        row.querySelector(`[data-type="${type}"]`).classList.add('cursor-not-allowed');
+                    });
+                }
+                return row;
+            }
+
+            // --- MAIN RENDER FUNCTION ---
+            function renderAll() {
+                addressContainer.innerHTML = '';
+                const showInactive = showInactiveToggle.checked;
+                const filteredAddresses = showInactive ? addresses : addresses.filter(a => a.isActive);
+                
+                if (filteredAddresses.length > 0) {
+                    const headerRow = document.createElement('div');
+                    headerRow.className = 'flex items-center py-2 px-3 text-xs font-bold text-gray-500 uppercase border-b border-gray-300';
+                    headerRow.innerHTML = `
+                        <div class="flex-1">Address Details</div>
+                        <div style="flex-basis: 150px;">VAT Number</div>
+                        <div style="flex-basis: 180px; text-align: center;">Actions</div>
+                    `;
+                    addressContainer.appendChild(headerRow);
+                }
+
+                filteredAddresses.forEach(addr => {
+                    addressContainer.appendChild(createAddressRowElement(addr));
+                });
+            }
+
+            // --- FORM MODAL FUNCTIONS ---
+            function showFormModal(address = null) {
+                addressForm.reset();
+                if (address) {
+                    formModalTitle.textContent = 'Edit Address';
+                    document.getElementById('addressId').value = address.id;
+                    document.getElementById('addressName').value = address.name;
+                    document.getElementById('addressStreet').value = address.street;
+                    document.getElementById('addressVat').value = address.vatNumber || '';
+                    deactivateBtn.style.display = 'block';
+                } else {
+                    formModalTitle.textContent = 'Add New Address';
+                    deactivateBtn.style.display = 'none';
+                }
+                formModalOverlay.style.display = 'flex';
+            }
+
+            function hideFormModal() {
+                formModalOverlay.style.display = 'none';
+            }
+
+            // --- GLOBAL LISTENERS ---
+            addNewAddressBtn.addEventListener('click', () => showFormModal());
+            closeModalBtn.addEventListener('click', () => {
+                const modal = document.getElementById('addressModal');
+                if (modal) modal.style.display = 'none';
+            });
+            showInactiveToggle.addEventListener('change', renderAll);
+            closeFormModalBtn.addEventListener('click', hideFormModal);
+            cancelFormBtn.addEventListener('click', hideFormModal);
+            
+            deactivateBtn.addEventListener('click', () => {
+                const id = parseInt(document.getElementById('addressId').value);
+                if (!id) return;
+                
+                const address = addresses.find(a => a.id === id);
+                if (address) {
+                    address.isActive = false;
+                    address.isLegal = false;
+                    address.isBilling = false;
+                    address.isShipping = false;
+                }
+                hideFormModal();
+                renderAll();
+            });
+
+            // --- FORM SUBMISSION ---
+            addressForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const id = parseInt(formData.get('id'));
+                const addressData = {
+                    name: formData.get('name'),
+                    street: formData.get('street'),
+                    vatNumber: formData.get('vatNumber') || null,
+                };
+
+                if (id) {
+                    const index = addresses.findIndex(a => a.id === id);
+                    if (index !== -1) {
+                        addresses[index] = { ...addresses[index], ...addressData };
+                    }
+                } else {
+                    const newId = Math.max(...addresses.map(a => a.id)) + 1;
+                    addresses.unshift({
+                        ...addressData,
+                        id: newId,
+                        isLegal: false, isBilling: false, isShipping: false, isActive: true,
+                        canBeLegal: true, canBeBilling: true, canBeShipping: true // Default for new addresses
+                    });
+                }
+                hideFormModal();
+                renderAll();
+            });
+
+            // --- INITIALIZATION ---
+            renderAll();
+        });
+    </script>
+
+</body>
+</html>
