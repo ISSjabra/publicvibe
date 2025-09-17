@@ -56,7 +56,8 @@
 
         /* --- Search Bar --- */
         .search-container { max-width: 42rem; margin-bottom: 1.5rem; margin-left: auto; margin-right: auto; }
-        .search-wrapper { position: relative; display: flex; align-items: center; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); border-radius: 9999px; }
+        .search-wrapper { position: relative; }
+        .search-input-wrapper { position: relative; display: flex; align-items: center; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); border-radius: 9999px; }
         #searchInput {
             width: 100%;
             padding: 0.75rem 4.5rem 0.75rem 1.25rem;
@@ -83,6 +84,31 @@
             transition: all 0.3s;
         }
         #searchButton:hover { background-color: #1d4ed8; transform: translateY(-50%) scale(1.05); }
+
+        /* --- Autocomplete Suggestions --- */
+        .suggestions-list {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background-color: white;
+            border-radius: 0 0 1rem 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e5e7eb;
+            margin-top: 0.25rem;
+            z-index: 10;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        .suggestion-item {
+            padding: 0.75rem 1.25rem;
+            cursor: pointer;
+            font-size: 0.95rem;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .suggestion-item:last-child { border-bottom: none; }
+        .suggestion-item:hover { background-color: #f3f4f6; }
+        .suggestion-item-highlight { font-weight: 700; color: #111827; }
 
         /* --- Results Grid --- */
         #results {
@@ -227,8 +253,11 @@
 
         <div class="search-container">
             <div class="search-wrapper">
-                <input type="text" id="searchInput" placeholder="Enter a company name (e.g., Google, Microsoft)...">
-                <button id="searchButton">Search</button>
+                <div class="search-input-wrapper">
+                    <input type="text" id="searchInput" placeholder="Enter a company name (e.g., Google, Microsoft)..." autocomplete="off">
+                    <button id="searchButton">Search</button>
+                </div>
+                <div id="suggestions" class="suggestions-list hidden"></div>
             </div>
         </div>
 
@@ -250,6 +279,7 @@
         const searchInput = document.getElementById('searchInput');
         const searchButton = document.getElementById('searchButton');
         const resultsContainer = document.getElementById('results');
+        const suggestionsContainer = document.getElementById('suggestions');
         const loader = document.getElementById('loader');
         const message = document.getElementById('message');
         const helpButton = document.getElementById('helpButton');
@@ -260,9 +290,23 @@
         const API_BASE_URL = 'https://api.gleif.org/api/v1/lei-records';
 
         /**
+         * Debounce function to limit API calls while typing.
+         */
+        let debounceTimer;
+        const debounce = (callback, time) => {
+            return (...args) => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    callback(...args);
+                }, time);
+            };
+        };
+        
+        /**
          * Fetches and displays data from the GLEIF API based on the search query.
          */
         const performSearch = async () => {
+            suggestionsContainer.classList.add('hidden');
             const query = searchInput.value.trim();
             if (!query) {
                 showMessage('Please enter a company name to search.');
@@ -296,11 +340,60 @@
                 loader.classList.add('hidden');
             }
         };
+        
+        /**
+         * Fetches suggestions from the API based on user input.
+         */
+        const fetchSuggestions = async (query) => {
+             try {
+                const searchUrl = `${API_BASE_URL}?filter[fulltext]=${encodeURIComponent(query)}&page[size]=7`;
+                const response = await fetch(searchUrl, { headers: { 'Accept': 'application/vnd.api+json' } });
+                if (!response.ok) {
+                    suggestionsContainer.classList.add('hidden');
+                    return;
+                }
+                const data = await response.json();
+                if (data.data && data.data.length > 0) {
+                    displaySuggestions(data.data, query);
+                } else {
+                    suggestionsContainer.classList.add('hidden');
+                }
+            } catch (error) {
+                console.error('Error fetching suggestions:', error);
+                suggestionsContainer.classList.add('hidden');
+            }
+        };
+
+        /**
+         * Displays the fetched suggestions in a dropdown.
+         */
+        const displaySuggestions = (records, query) => {
+            suggestionsContainer.innerHTML = '';
+            records.forEach(record => {
+                const legalName = record.attributes.entity.legalName?.name;
+                if (!legalName) return;
+
+                const item = document.createElement('div');
+                item.className = 'suggestion-item';
+
+                const regex = new RegExp(`(${query})`, 'gi');
+                item.innerHTML = legalName.replace(regex, `<span class="suggestion-item-highlight">$1</span>`);
+                
+                item.addEventListener('click', () => {
+                    searchInput.value = legalName;
+                    suggestionsContainer.classList.add('hidden');
+                    performSearch();
+                });
+                suggestionsContainer.appendChild(item);
+            });
+            suggestionsContainer.classList.remove('hidden');
+        };
 
         /**
          * Renders the search results in the results container.
          */
         const displayResults = (records) => {
+            resultsContainer.innerHTML = ''; // Clear previous results
             records.forEach(record => {
                 const { entity, lei } = record.attributes;
                 const legalName = entity.legalName?.name || 'N/A';
@@ -379,14 +472,35 @@
          * Displays a message in the message area.
          */
         const showMessage = (text) => {
+            resultsContainer.innerHTML = ''; // Clear results when showing a message
             message.textContent = text;
             message.classList.remove('hidden');
+        };
+
+        /**
+         * Handles the input event on the search bar for autocomplete.
+         */
+        const handleInput = (event) => {
+            const query = event.target.value.trim();
+            if (query.length < 3) {
+                suggestionsContainer.classList.add('hidden');
+                return;
+            }
+            fetchSuggestions(query);
         };
 
         // --- Event Listeners ---
         searchButton.addEventListener('click', performSearch);
         searchInput.addEventListener('keyup', (event) => {
             if (event.key === 'Enter') performSearch();
+        });
+        searchInput.addEventListener('input', debounce(handleInput, 300));
+
+        // Hide suggestions when clicking outside the search wrapper
+        document.addEventListener('click', (event) => {
+            if (!event.target.closest('.search-wrapper')) {
+                suggestionsContainer.classList.add('hidden');
+            }
         });
 
         helpButton.addEventListener('click', () => helpModal.classList.remove('hidden'));
@@ -409,3 +523,4 @@
     </script>
 </body>
 </html>
+
