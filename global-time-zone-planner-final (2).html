@@ -1,0 +1,1064 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Global Time Zone Planner</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #ffffff;
+      --surface-subtle: #f8fafc;
+      --border: #e2e8f0;
+      --border-strong: #cbd5e1;
+      --ink: #0f172a;
+      --ink-muted: #64748b;
+      --ink-subtle: #94a3b8;
+      
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --primary-soft: #eff6ff;
+      --primary-border: #bfdbfe;
+      
+      --work-bg: #e0edff;
+      --work-text: #1e40af;
+      --work-border: #bfdbfe;
+      
+      --off-bg: #f8fafc;
+      --off-text: #64748b;
+      
+      --selected-bg: #1d4ed8;
+      --selected-text: #ffffff;
+      
+      --line-marker: #ef4444;
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --shadow-card: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+      --city-col-width: 215px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    html, body {
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--ink);
+      background: #f1f5f9;
+      background: radial-gradient(circle at 15% 15%, #e2e8f0 0%, #f1f5f9 100%);
+    }
+
+    button, input, select {
+      font-family: inherit;
+      font-size: 12px;
+      color: var(--ink);
+    }
+    button {
+      cursor: pointer;
+    }
+
+    /* Outer Viewport Container: strictly fits 100vh with zero vertical scroll */
+    .app {
+      height: 100%;
+      height: 100dvh;
+      max-height: 100dvh;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+    }
+
+    /* 1. Header Bar: Sleek, compact and informative (44px) */
+    header {
+      flex: 0 0 44px;
+      height: 44px;
+      padding: 0 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: #ffffff;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, #1e40af, #3b82f6);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+    }
+    .brand-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #0f172a;
+      letter-spacing: -0.02em;
+    }
+    .brand-tag {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--ink-muted);
+      background: #f1f5f9;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+    }
+
+    .header-center {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--ink-muted);
+    }
+    .legend-badge {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      display: inline-block;
+    }
+    .legend-work { background: var(--work-bg); border: 1px solid var(--work-border); }
+    .legend-off { background: var(--off-bg); border: 1px solid var(--border); }
+    .legend-selected { background: var(--selected-bg); }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Buttons */
+    .btn {
+      height: 28px;
+      padding: 0 10px;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      border-radius: var(--radius-sm);
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--ink);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .btn:hover {
+      background: #f8fafc;
+      border-color: var(--border-strong);
+    }
+    .btn.primary {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+    .btn.primary:hover {
+      background: var(--primary-hover);
+      border-color: var(--primary-hover);
+    }
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    /* 2. Controls Toolbar: Clean, horizontal, high density (40px) */
+    .controls {
+      flex: 0 0 40px;
+      height: 40px;
+      padding: 0 14px;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .controls::-webkit-scrollbar { display: none; }
+
+    .controls-left, .controls-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ctrl-pill {
+      display: inline-flex;
+      align-items: center;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      height: 28px;
+      padding: 0 7px;
+      gap: 6px;
+    }
+    .ctrl-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--ink-muted);
+      white-space: nowrap;
+      user-select: none;
+    }
+    .ctrl-sep {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ink-subtle);
+    }
+    .ctrl-input {
+      border: none;
+      background: transparent;
+      outline: none;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink);
+      padding: 0 2px;
+    }
+    .ctrl-select {
+      border: none;
+      background: transparent;
+      outline: none;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink);
+      cursor: pointer;
+      padding: 0 2px;
+    }
+    .date-nav-group {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: #ffffff;
+      overflow: hidden;
+      height: 28px;
+    }
+    .date-nav-group button {
+      height: 100%;
+      border: none;
+      background: transparent;
+      padding: 0 9px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--ink);
+      transition: background 0.12s;
+    }
+    .date-nav-group button:hover {
+      background: #f1f5f9;
+    }
+    .date-nav-group button:not(:last-child) {
+      border-right: 1px solid var(--border);
+    }
+
+    /* 3. Planner Area: Fully flexible, dynamically fits viewport */
+    .planner {
+      flex: 1 1 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow-x: auto;
+      overflow-y: hidden;
+      position: relative;
+      background: #ffffff;
+    }
+
+    .timeline {
+      --city-col: var(--city-col-width);
+      min-width: 980px;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* Vertical Selected Time Guide Line */
+    .selected-line {
+      position: absolute;
+      z-index: 10;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--line-marker);
+      pointer-events: none;
+      transform: translateX(-1px);
+      box-shadow: 0 0 6px rgba(239, 68, 68, 0.45);
+    }
+    .selected-line::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translate(-50%, -1px);
+      width: 0;
+      height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 0;
+      border-bottom: 7px solid var(--line-marker);
+    }
+
+    /* Hour Header Row */
+    .hour-head {
+      flex: 0 0 26px;
+      height: 26px;
+      display: grid;
+      grid-template-columns: var(--city-col) repeat(24, minmax(0, 1fr));
+      background: #f8fafc;
+      border-bottom: 1px solid var(--border);
+      user-select: none;
+    }
+    .head-info {
+      padding: 0 12px;
+      display: flex;
+      align-items: center;
+      font-size: 10.5px;
+      font-weight: 700;
+      color: var(--ink-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      border-right: 1px solid var(--border);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .hour-label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--ink-muted);
+      border-left: 1px solid #f1f5f9;
+      white-space: nowrap;
+    }
+
+    /* 7 City Rows: Distribute available height evenly */
+    .city-row {
+      flex: 1 1 0;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: var(--city-col) repeat(24, minmax(0, 1fr));
+      border-bottom: 1px solid #f1f5f9;
+      transition: background 0.12s;
+    }
+    .city-row:last-child {
+      border-bottom: none;
+    }
+    .city-row:hover {
+      background: rgba(248, 250, 252, 0.6);
+    }
+
+    /* Sticky Left City Column */
+    .city-info {
+      position: sticky;
+      left: 0;
+      z-index: 5;
+      background: #ffffff;
+      border-right: 1px solid var(--border);
+      padding: 0 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      box-shadow: 2px 0 6px -2px rgba(15, 23, 42, 0.04);
+    }
+    .city-row:hover .city-info {
+      background: #fcfdfe;
+    }
+
+    .city-meta {
+      min-width: 0;
+    }
+    .city-name {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .city-zone {
+      font-size: 10.5px;
+      font-weight: 500;
+      color: var(--ink-muted);
+      line-height: 1.1;
+      margin-top: 1px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .city-now {
+      text-align: right;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .city-now-time {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #334155;
+      line-height: 1.2;
+    }
+    .city-now-date {
+      font-size: 9.5px;
+      font-weight: 500;
+      color: var(--ink-subtle);
+      line-height: 1;
+      margin-top: 1px;
+    }
+
+    /* 24-hour interactive cells */
+    .time-cell {
+      position: relative;
+      border: none;
+      border-left: 1px solid rgba(226, 232, 240, 0.65);
+      background: var(--off-bg);
+      color: var(--off-text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 0 1px;
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.1s, color 0.1s;
+    }
+    .time-cell.work {
+      background: var(--work-bg);
+      color: var(--work-text);
+    }
+    .time-cell:hover {
+      background: #bfdbfe !important;
+      color: #1e3a8a !important;
+      z-index: 2;
+    }
+    .time-cell.selected {
+      background: var(--selected-bg) !important;
+      color: var(--selected-text) !important;
+      z-index: 4;
+      box-shadow: inset 0 0 0 1.5px #ffffff, 0 2px 8px rgba(37, 99, 235, 0.4);
+    }
+    .time-cell .hour {
+      font-size: 12.5px;
+      font-weight: 700;
+      line-height: 1.1;
+    }
+    .time-cell .ampm {
+      font-size: 9.5px;
+      font-weight: 600;
+      line-height: 1;
+      opacity: 0.85;
+      margin-top: 1px;
+    }
+    /* Day change badge */
+    .time-cell.next-day::after {
+      content: '+1';
+      position: absolute;
+      top: 1px;
+      right: 1px;
+      font-size: 8px;
+      font-weight: 800;
+      padding: 1px 2px;
+      border-radius: 3px;
+      background: #fef3c7;
+      color: #92400e;
+      line-height: 1;
+    }
+    .time-cell.prev-day::after {
+      content: '-1';
+      position: absolute;
+      top: 1px;
+      right: 1px;
+      font-size: 8px;
+      font-weight: 800;
+      padding: 1px 2px;
+      border-radius: 3px;
+      background: #ede9fe;
+      color: #6d28d9;
+      line-height: 1;
+    }
+
+    /* 4. Docked Bottom Selection Bar (48px) */
+    .selection-panel {
+      flex: 0 0 48px;
+      height: 48px;
+      padding: 0 14px;
+      background: #f8fafc;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .selection-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      flex: 1;
+    }
+    .selection-badge {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #1e40af;
+      background: #dbeafe;
+      padding: 3px 6px;
+      border-radius: var(--radius-sm);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .selection-title {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--ink);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .compact-string {
+      flex: 1;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #334155;
+      background: #ffffff;
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      white-space: nowrap;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .compact-string::-webkit-scrollbar { display: none; }
+
+    .copy-area {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .copy-status {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #16a34a;
+      min-width: 50px;
+      text-align: right;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 1024px) {
+      .header-center { display: none; }
+      .brand-tag { display: none; }
+      :root { --city-col-width: 175px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="card" aria-labelledby="app-title">
+      
+      <!-- Top Header Bar -->
+      <header>
+        <div class="brand">
+          <div class="brand-icon" aria-hidden="true">TZ</div>
+          <div>
+            <h1 class="brand-title" id="app-title">Global Time Zone Planner</h1>
+          </div>
+          <span class="brand-tag">Instant Planner</span>
+        </div>
+
+        <div class="header-center">
+          <div class="legend-item"><span class="legend-badge legend-work"></span> Working hours (8:00 AM - 6:00 PM)</div>
+          <div class="legend-item"><span class="legend-badge legend-off"></span> Outside hours</div>
+          <div class="legend-item"><span class="legend-badge legend-selected"></span> Selected time</div>
+        </div>
+
+        <div class="header-actions">
+          <button class="btn" id="nowBtn" type="button" title="Jump to current moment">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            Jump to now
+          </button>
+          <button class="btn primary" id="copyTopBtn" type="button" title="Copy selected times">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            Copy times
+          </button>
+        </div>
+      </header>
+
+      <!-- Controls Toolbar -->
+      <div class="controls">
+        <div class="controls-left">
+          <div class="date-nav-group">
+            <button id="prevDay" type="button" aria-label="Previous day" title="Previous day">‹</button>
+            <button id="todayBtn" type="button" title="Jump to today">Today</button>
+            <button id="nextDay" type="button" aria-label="Next day" title="Next day">›</button>
+          </div>
+
+          <div class="ctrl-pill">
+            <label class="ctrl-label" for="datePicker">Date</label>
+            <input class="ctrl-input" id="datePicker" type="date" />
+          </div>
+
+          <div class="ctrl-pill">
+            <label class="ctrl-label" for="timePicker">Time</label>
+            <input class="ctrl-input" id="timePicker" type="time" step="60" value="09:00" />
+            <span class="ctrl-sep">in</span>
+            <select class="ctrl-select" id="selectedCity"></select>
+          </div>
+        </div>
+
+        <div class="controls-right">
+          <div class="ctrl-pill">
+            <label class="ctrl-label" for="hourFormat">Format</label>
+            <select class="ctrl-select" id="hourFormat">
+              <option value="12">12-hour</option>
+              <option value="24">24-hour</option>
+            </select>
+          </div>
+
+          <div class="ctrl-pill">
+            <label class="ctrl-label" for="copyFormat">Copy</label>
+            <select class="ctrl-select" id="copyFormat">
+              <option value="compact">Compact (one line)</option>
+              <option value="dated">Include city dates</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Planner Grid: Dynamic height, zero vertical scroll -->
+      <div class="planner" id="planner" aria-label="24-hour time zone comparison">
+        <div class="timeline" id="timeline"></div>
+      </div>
+
+      <!-- Docked Selection Footer -->
+      <section class="selection-panel" aria-live="polite">
+        <div class="selection-meta">
+          <span class="selection-badge">Selected</span>
+          <div class="selection-title" id="selectionTitle">Select a time from any city</div>
+          <div class="compact-string" id="compactString">No time selected</div>
+        </div>
+        <div class="copy-area">
+          <span class="copy-status" id="copyStatus"></span>
+          <button class="btn primary" id="copyBtn" type="button">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            Copy for email
+          </button>
+        </div>
+      </section>
+
+    </section>
+  </main>
+
+  <script>
+    'use strict';
+
+    const cities = [
+      { name: 'New York', short: 'NY', zone: 'America/New_York' },
+      { name: 'Oklahoma City', short: 'OKC', zone: 'America/Chicago' },
+      { name: 'Manila', short: 'Manila', zone: 'Asia/Manila' },
+      { name: 'London', short: 'London', zone: 'Europe/London' },
+      { name: 'Frankfurt', short: 'Frankfurt', zone: 'Europe/Berlin' },
+      { name: 'Mumbai', short: 'Mumbai', zone: 'Asia/Kolkata' },
+      { name: 'Sydney', short: 'Sydney', zone: 'Australia/Sydney' }
+    ];
+
+    const state = {
+      referenceCityIndex: 1,
+      selectedInstant: null,
+      selectedCityIndex: 1,
+      displayDate: '',
+      hour12: true,
+      copyFormat: 'compact'
+    };
+
+    const el = id => document.getElementById(id);
+    const pad = n => String(n).padStart(2, '0');
+
+    function partsFor(date, timeZone) {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone, year:'numeric', month:'2-digit', day:'2-digit',
+        hour:'2-digit', minute:'2-digit', second:'2-digit', hourCycle:'h23'
+      }).formatToParts(date);
+      return Object.fromEntries(parts.filter(p => p.type !== 'literal').map(p => [p.type, p.value]));
+    }
+
+    function ymdInZone(date, zone) {
+      const p = partsFor(date, zone);
+      return `${p.year}-${p.month}-${p.day}`;
+    }
+
+    function zoneOffsetMs(date, timeZone) {
+      const p = partsFor(date, timeZone);
+      const asUTC = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
+      return asUTC - date.getTime();
+    }
+
+    function getZoneInfo(date, zone) {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: zone,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hourCycle: 'h23',
+        timeZoneName: 'long'
+      }).formatToParts(date);
+      
+      const longName = parts.find(p => p.type === 'timeZoneName')?.value || '';
+      const isSummer = /summer|daylight/i.test(longName);
+      
+      const pMap = Object.fromEntries(parts.filter(p => p.type !== 'literal').map(p => [p.type, p.value]));
+      const asUTC = Date.UTC(+pMap.year, +pMap.month - 1, +pMap.day, +pMap.hour, +pMap.minute, +pMap.second);
+      const offsetMin = Math.round((asUTC - date.getTime()) / 60000);
+      const sign = offsetMin >= 0 ? '+' : '-';
+      const abs = Math.abs(offsetMin);
+      const h = Math.floor(abs / 60);
+      const m = abs % 60;
+      const offsetStr = `UTC${sign}${h}` + (m > 0 ? `:${String(m).padStart(2, '0')}` : '');
+
+      let abbr = '';
+      let badge = '';
+
+      switch (zone) {
+        case 'Asia/Kolkata':
+          abbr = 'IST';
+          badge = 'IST';
+          break;
+        case 'Europe/Berlin':
+          abbr = isSummer ? 'CEST' : 'CET';
+          badge = isSummer ? 'CET / CEST' : 'CET';
+          break;
+        case 'Europe/London':
+          abbr = isSummer ? 'BST' : 'GMT';
+          badge = isSummer ? 'BST / GMT' : 'GMT';
+          break;
+        case 'Asia/Manila':
+          abbr = 'PHT';
+          badge = 'PHT';
+          break;
+        case 'Australia/Sydney':
+          abbr = isSummer ? 'AEDT' : 'AEST';
+          badge = isSummer ? 'AEDT' : 'AEST';
+          break;
+        case 'America/New_York':
+          abbr = isSummer ? 'EDT' : 'EST';
+          badge = isSummer ? 'EDT' : 'EST';
+          break;
+        case 'America/Chicago':
+          abbr = isSummer ? 'CDT' : 'CST';
+          badge = isSummer ? 'CDT' : 'CST';
+          break;
+        default:
+          abbr = isSummer ? 'DT' : 'ST';
+          badge = abbr;
+      }
+
+      return { abbr, badge, offsetStr, isSummer, longName };
+    }
+
+    function zoneAbbr(date, zone) {
+      return getZoneInfo(date, zone).abbr;
+    }
+
+    function zoneOffsetString(date, timeZone) {
+      return getZoneInfo(date, timeZone).offsetStr;
+    }
+
+    // Converts a wall-clock date/time in an IANA zone to an absolute instant.
+    // The second pass handles daylight-saving offset transitions.
+    function zonedDateTimeToInstant(ymd, hour, minute, timeZone) {
+      const [year, month, day] = ymd.split('-').map(Number);
+      const utcGuess = Date.UTC(year, month - 1, day, hour, minute, 0);
+      let instant = new Date(utcGuess - zoneOffsetMs(new Date(utcGuess), timeZone));
+      instant = new Date(utcGuess - zoneOffsetMs(instant, timeZone));
+      return instant;
+    }
+
+    function formatTime(date, zone, includeMinutes = true) {
+      return new Intl.DateTimeFormat('en-US', {
+        timeZone: zone,
+        hour: 'numeric',
+        minute: includeMinutes ? '2-digit' : undefined,
+        hour12: state.hour12
+      }).format(date);
+    }
+
+    function formatCellTime(date, zone) {
+      const p = new Intl.DateTimeFormat('en-US', {
+        timeZone: zone, hour: 'numeric', minute: '2-digit', hour12: state.hour12
+      }).formatToParts(date);
+      const hour = p.find(x => x.type === 'hour')?.value || '';
+      const minute = p.find(x => x.type === 'minute')?.value || '00';
+      const dayPeriod = p.find(x => x.type === 'dayPeriod')?.value || '';
+      return { main: minute === '00' ? hour : `${hour}:${minute}`, period: dayPeriod };
+    }
+
+    function formatDate(date, zone, style='short') {
+      const options = style === 'long'
+        ? { timeZone:zone, weekday:'short', month:'short', day:'numeric', year:'numeric' }
+        : { timeZone:zone, weekday:'short', month:'short', day:'numeric' };
+      return new Intl.DateTimeFormat('en-US', options).format(date);
+    }
+
+    function dayDifference(date, zone, referenceYmd) {
+      const localYmd = ymdInZone(date, zone);
+      const asDay = value => {
+        const [y,m,d] = value.split('-').map(Number);
+        return Math.round(Date.UTC(y,m-1,d) / 86400000);
+      };
+      return asDay(localYmd) - asDay(referenceYmd);
+    }
+
+    function timelineStart() {
+      return zonedDateTimeToInstant(state.displayDate, 0, 0, cities[state.referenceCityIndex].zone);
+    }
+
+    function buildCopyString() {
+      if (!state.selectedInstant) return 'No time selected';
+      const date = state.selectedInstant;
+      return cities.map(city => {
+        const base = `${city.short} ${formatTime(date, city.zone)} ${zoneAbbr(date, city.zone)}`;
+        return state.copyFormat === 'dated' ? `${base} (${formatDate(date, city.zone)})` : base;
+      }).join(' | ');
+    }
+
+    function updateSelection() {
+      const output = el('compactString');
+      const title = el('selectionTitle');
+      if (!state.selectedInstant) {
+        title.textContent = 'Select a time from any city';
+        output.textContent = 'No time selected';
+        return;
+      }
+      const ref = cities[state.referenceCityIndex];
+      const refZone = getZoneInfo(state.selectedInstant, ref.zone);
+      title.textContent = `${formatDate(state.selectedInstant, ref.zone, 'long')} at ${formatTime(state.selectedInstant, ref.zone)} ${refZone.abbr} in ${ref.name}`;
+      output.textContent = buildCopyString();
+    }
+
+    function render() {
+      const timeline = el('timeline');
+      timeline.textContent = '';
+      const start = timelineStart();
+
+      const head = document.createElement('div');
+      head.className = 'hour-head';
+      const headInfo = document.createElement('div');
+      headInfo.className = 'head-info';
+      headInfo.textContent = `24h from ${cities[state.referenceCityIndex].name}`;
+      head.appendChild(headInfo);
+      for (let hour = 0; hour < 24; hour++) {
+        const instant = new Date(start.getTime() + hour * 3600000);
+        const label = document.createElement('div');
+        label.className = 'hour-label';
+        label.textContent = formatTime(instant, cities[state.referenceCityIndex].zone, false);
+        head.appendChild(label);
+      }
+      timeline.appendChild(head);
+
+      cities.forEach((city, cityIndex) => {
+        const row = document.createElement('div');
+        row.className = 'city-row';
+
+        const info = document.createElement('div');
+        info.className = 'city-info';
+        
+        const meta = document.createElement('div');
+        meta.className = 'city-meta';
+        const zoneInfo = getZoneInfo(start, city.zone);
+        meta.innerHTML = `<div class="city-name">${city.name}</div><div class="city-zone">${zoneInfo.badge} · ${zoneInfo.offsetStr}</div>`;
+        
+        const right = document.createElement('div');
+        right.className = 'city-now';
+        const startDate = formatDate(start, city.zone);
+        const cityEnd = new Date(start.getTime() + 23 * 3600000);
+        const endDate = formatDate(cityEnd, city.zone);
+        right.innerHTML = `<div class="city-now-time">${startDate}</div><div class="city-now-date">${startDate === endDate ? 'Calendar date' : `to ${endDate}`}</div>`;
+        
+        info.append(meta, right);
+        row.appendChild(info);
+
+        for (let hour = 0; hour < 24; hour++) {
+          const instant = new Date(start.getTime() + hour * 3600000);
+          const p = partsFor(instant, city.zone);
+          const localHour = +p.hour;
+          const cellTime = formatCellTime(instant, city.zone);
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'time-cell' + (localHour >= 8 && localHour < 18 ? ' work' : '');
+          const diff = dayDifference(instant, city.zone, state.displayDate);
+          if (diff > 0) button.classList.add('next-day');
+          if (diff < 0) button.classList.add('prev-day');
+          if (state.selectedInstant && state.selectedInstant >= instant && state.selectedInstant < new Date(instant.getTime() + 3600000)) {
+            button.classList.add('selected');
+          }
+          button.innerHTML = `<span class="hour">${cellTime.main}</span>${cellTime.period ? `<span class="ampm">${cellTime.period}</span>` : ''}`;
+          button.setAttribute('aria-label', `Select ${formatDate(instant, city.zone)} ${formatTime(instant, city.zone)} in ${city.name}`);
+          button.title = `${city.name}: ${formatDate(instant, city.zone)} ${formatTime(instant, city.zone)} (${getZoneInfo(instant, city.zone).abbr})`;
+          button.addEventListener('click', () => {
+            state.referenceCityIndex = cityIndex;
+            state.selectedCityIndex = cityIndex;
+            state.selectedInstant = instant;
+            state.displayDate = ymdInZone(instant, city.zone);
+            el('datePicker').value = state.displayDate;
+            el('selectedCity').value = String(cityIndex);
+            const clickedParts = partsFor(instant, city.zone);
+            el('timePicker').value = `${clickedParts.hour}:${clickedParts.minute}`;
+            render();
+            updateSelection();
+          });
+          row.appendChild(button);
+        }
+        timeline.appendChild(row);
+      });
+
+      if (state.selectedInstant) {
+        const elapsedHours = (state.selectedInstant.getTime() - start.getTime()) / 3600000;
+        if (elapsedHours >= 0 && elapsedHours <= 24) {
+          const line = document.createElement('div');
+          line.className = 'selected-line';
+          line.style.left = `calc(var(--city-col) + (100% - var(--city-col)) * ${elapsedHours / 24})`;
+          line.title = `Selected: ${formatTime(state.selectedInstant, cities[state.referenceCityIndex].zone)}`;
+          timeline.appendChild(line);
+        }
+      }
+      updateSelection();
+    }
+
+    function setToday(selectCurrentHour = false) {
+      const ref = cities[state.referenceCityIndex];
+      const now = new Date();
+      state.displayDate = ymdInZone(now, ref.zone);
+      el('datePicker').value = state.displayDate;
+      if (selectCurrentHour) {
+        const p = partsFor(now, ref.zone);
+        state.selectedInstant = zonedDateTimeToInstant(state.displayDate, +p.hour, +p.minute, ref.zone);
+        state.selectedCityIndex = state.referenceCityIndex;
+        if (el('selectedCity').options.length) el('selectedCity').value = String(state.selectedCityIndex);
+        el('timePicker').value = `${p.hour}:${p.minute}`;
+      }
+      render();
+    }
+
+    function shiftDate(days) {
+      const [y,m,d] = state.displayDate.split('-').map(Number);
+      const shifted = new Date(Date.UTC(y,m-1,d + days));
+      state.displayDate = `${shifted.getUTCFullYear()}-${pad(shifted.getUTCMonth()+1)}-${pad(shifted.getUTCDate())}`;
+      el('datePicker').value = state.displayDate;
+      applySpecificTime();
+    }
+
+    async function copyTimes() {
+      if (!state.selectedInstant) {
+        el('copyStatus').textContent = 'No time selected';
+        el('copyStatus').style.color = '#ef4444';
+        return;
+      }
+      const value = buildCopyString();
+      try {
+        await navigator.clipboard.writeText(value);
+      } catch {
+        const area = document.createElement('textarea');
+        area.value = value;
+        area.style.position = 'fixed';
+        area.style.opacity = '0';
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand('copy');
+        area.remove();
+      }
+      el('copyStatus').style.color = '#16a34a';
+      el('copyStatus').textContent = '✓ Copied';
+      setTimeout(() => el('copyStatus').textContent = '', 2000);
+    }
+
+    el('prevDay').addEventListener('click', () => shiftDate(-1));
+    el('nextDay').addEventListener('click', () => shiftDate(1));
+    el('todayBtn').addEventListener('click', () => setToday(false));
+    el('nowBtn').addEventListener('click', () => setToday(true));
+    
+    el('datePicker').addEventListener('change', event => {
+      if (!event.target.value) return;
+      state.displayDate = event.target.value;
+      applySpecificTime();
+    });
+
+    function applySpecificTime() {
+      const timeValue = el('timePicker').value || '09:00';
+      const [hour, minute] = timeValue.split(':').map(Number);
+      const cityIndex = Number(el('selectedCity').value);
+      state.selectedCityIndex = cityIndex;
+      state.referenceCityIndex = cityIndex;
+      state.selectedInstant = zonedDateTimeToInstant(state.displayDate, hour, minute, cities[cityIndex].zone);
+      render();
+    }
+
+    el('timePicker').addEventListener('change', applySpecificTime);
+    el('selectedCity').addEventListener('change', applySpecificTime);
+
+    el('hourFormat').addEventListener('change', event => {
+      state.hour12 = event.target.value === '12';
+      render();
+    });
+    el('copyFormat').addEventListener('change', event => {
+      state.copyFormat = event.target.value;
+      updateSelection();
+    });
+    el('copyBtn').addEventListener('click', copyTimes);
+    el('copyTopBtn').addEventListener('click', copyTimes);
+
+    // Initialize City Dropdown
+    cities.forEach((city, index) => {
+      const option = document.createElement('option');
+      option.value = String(index);
+      option.textContent = city.name;
+      el('selectedCity').appendChild(option);
+    });
+    el('selectedCity').value = String(state.selectedCityIndex);
+
+    // Initial load
+    setToday(true);
+    const initialParts = partsFor(state.selectedInstant, cities[state.selectedCityIndex].zone);
+    el('timePicker').value = `${initialParts.hour}:${initialParts.minute}`;
+  </script>
+</body>
+</html>
